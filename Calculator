@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flagship Solar Energy Calculator for South Africa</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        h1 {
+            text-align: center;
+        }
+        .logo {
+            display: block;
+            margin: 0 auto;
+            width: 200px; /* Adjust the width as needed */
+        }
+        .calculator {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .input-section {
+            margin-bottom: 20px;
+        }
+        .slider-container, .input-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .slider {
+            flex-grow: 1;
+            height: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3498db;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .slider-value, .input-value {
+            min-width: 80px;
+            text-align: right;
+            margin-left: 10px;
+        }
+        .results {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        select, input[type="number"] {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>
+        <img decoding="async" src="https://flagshipsolar.co.za/wp-content/uploads/2024/01/Flagship-Solar.svg" alt="Flagship Solar" title="Flagship Solar" class="logo">
+    </h1>
+    <div class="calculator">
+        <div class="input-section">
+            <h2>1. Monthly Electricity Bill (ZAR)</h2>
+            <div class="slider-container">
+                <input type="range" min="0" max="10000" value="1000" class="slider" id="billSlider">
+                <span class="slider-value" id="billValue">R1000</span>
+            </div>
+        </div>
+        <div class="input-section">
+            <h2>2. Average Price per Unit (ZAR/kWh)</h2>
+            <div class="input-container">
+                <input type="number" min="0.01" step="0.01" value="2.07" id="pricePerUnit" readonly>
+                <span class="input-value">ZAR/kWh</span>
+            </div>
+        </div>
+        <div class="input-section">
+            <h2>3. Monthly Energy Usage (kWh)</h2>
+            <div class="slider-container">
+                <input type="range" min="0" max="2000" value="483" class="slider" id="monthlySlider">
+                <span class="slider-value" id="monthlyValue">483 kWh</span>
+            </div>
+        </div>
+        <div class="input-section">
+            <h2>4. Daily Energy Usage (kWh)</h2>
+            <div class="slider-container">
+                <input type="range" min="0" max="100" value="16.1" step="0.1" class="slider" id="dailySlider">
+                <span class="slider-value" id="dailyValue">16.1 kWh</span>
+            </div>
+        </div>
+        <div class="input-section">
+            <h2>5. System Type</h2>
+            <select id="systemType">
+                <option value="starter">Starter (20-25% battery capacity)</option>
+                <option value="semi-off-grid">Semi Off-Grid (50-80% battery capacity)</option>
+                <option value="off-grid">Full Off-Grid</option>
+            </select>
+        </div>
+        <div class="results">
+            <h2>Results</h2>
+            <p>Recommended PV System Size: <span id="pvSize">-</span></p>
+            <p>Estimated Number of Panels (550W): <span id="panelCount">-</span></p>
+            <p>Recommended Battery Capacity: <span id="batterySize">-</span></p>
+            <p>System Type Recommendation: <span id="systemRecommendation">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const billSlider = document.getElementById('billSlider');
+            const billValue = document.getElementById('billValue');
+            const pricePerUnit = document.getElementById('pricePerUnit');
+            const monthlySlider = document.getElementById('monthlySlider');
+            const monthlyValue = document.getElementById('monthlyValue');
+            const dailySlider = document.getElementById('dailySlider');
+            const dailyValue = document.getElementById('dailyValue');
+            const systemType = document.getElementById('systemType');
+
+            const pvSize = document.getElementById('pvSize');
+            const panelCount = document.getElementById('panelCount');
+            const batterySize = document.getElementById('batterySize');
+            const systemRecommendation = document.getElementById('systemRecommendation');
+
+            function updateSliderValue(slider, value, unit, decimals = 0) {
+                value.textContent = unit + parseFloat(slider.value).toFixed(decimals);
+            }
+
+            function calculateBill(usage) {
+                if (usage <= 599) {
+                    return usage * 3.60;
+                } else {
+                    return (599 * 3.60) + ((usage - 599) * 4.80);
+                }
+            }
+
+            function calculateAveragePrice(usage, bill) {
+                return bill / usage;
+            }
+
+            function calculateSolarSystem() {
+                let monthlyBill = parseFloat(billSlider.value);
+                let monthlyUsage = parseFloat(monthlySlider.value);
+                let dailyUsage = parseFloat(dailySlider.value);
+
+                // Synchronize values based on the last changed input
+                if (this === billSlider) {
+                    // Estimate usage based on bill
+                    if (monthlyBill <= 599 * 3.60) {
+                        monthlyUsage = monthlyBill / 3.60;
+                    } else {
+                        monthlyUsage = 599 + (monthlyBill - (599 * 3.60)) / 4.80;
+                    }
+                    monthlySlider.value = monthlyUsage.toFixed(2);
+                    updateSliderValue(monthlySlider, monthlyValue, '', 2);
+                    dailyUsage = monthlyUsage / 30;
+                    dailySlider.value = dailyUsage.toFixed(2);
+                    updateSliderValue(dailySlider, dailyValue, '', 2);
+                } else if (this === monthlySlider || this === dailySlider) {
+                    if (this === monthlySlider) {
+                        dailyUsage = monthlyUsage / 30;
+                        dailySlider.value = dailyUsage.toFixed(2);
+                        updateSliderValue(dailySlider, dailyValue, '', 2);
+                    } else {
+                        monthlyUsage = dailyUsage * 30;
+                        monthlySlider.value = monthlyUsage.toFixed(2);
+                        updateSliderValue(monthlySlider, monthlyValue, '', 2);
+                    }
+                    monthlyBill = calculateBill(monthlyUsage);
+                    billSlider.value = monthlyBill.toFixed(2);
+                    updateSliderValue(billSlider, billValue, 'R');
+                }
+
+                // Update average price per unit
+                let avgPrice = calculateAveragePrice(monthlyUsage, monthlyBill);
+                pricePerUnit.value = avgPrice.toFixed(2);
+
+                const sunHours = 5.5; // RMS hours for South Africa
+
+                // Calculate PV system size
+                let pvSystemSize = (dailyUsage / sunHours).toFixed(2);
+                let panelsNeeded = Math.ceil(pvSystemSize * 1000 / 550); // Using 550W panels
+                let actualPvSize = (panelsNeeded * 550 / 1000).toFixed(2);
+
+                // Calculate battery capacity based on system type
+                let batteryCapacity;
+                let recommendation;
+                switch(systemType.value) {
+                    case "starter":
+                        batteryCapacity = (dailyUsage * 0.25).toFixed(2);
+                        recommendation = "Starter system with 20-25% battery capacity. Optimize for self-consumption (e.g., charge geyser, pool filter, laundry, compressor tank during the day).";
+                        break;
+                    case "semi-off-grid":
+                        batteryCapacity = (dailyUsage * 0.65).toFixed(2);
+                        recommendation = "Semi off-grid system with 50-80% battery capacity. Requires Eskom to be on minimum 2 hours per 24 hours.";
+                        break;
+                    case "off-grid":
+                        batteryCapacity = (dailyUsage * 4).toFixed(2);
+                        actualPvSize = (actualPvSize * 2).toFixed(2);
+                        panelsNeeded *= 2;
+                        recommendation = "Full off-grid system with 2x panels and 4x battery capacity to compensate for winter and bad weather. Covers 100% of usage 99.5% of the time. Consider a small generator to boost battery directly for remaining 0.5%.";
+                        break;
+                }
+
+                // Update the DOM with calculated values
+                pvSize.textContent = actualPvSize + ' kW';
+                panelCount.textContent = panelsNeeded;
+                batterySize.textContent = batteryCapacity + ' kWh';
+                systemRecommendation.textContent = recommendation;
+
+                // Log calculations for verification
+                console.log('Monthly Bill:', monthlyBill);
+                console.log('Average Price per kWh:', avgPrice);
+                console.log('Monthly Usage:', monthlyUsage);
+                console.log('Daily Usage:', dailyUsage);
+                console.log('PV System Size:', actualPvSize);
+                console.log('Number of Panels:', panelsNeeded);
+                console.log('Battery Capacity:', batteryCapacity);
+                console.log('System Type:', systemType.value);
+            }
+
+            billSlider.oninput = function() {
+                updateSliderValue(this, billValue, 'R');
+                calculateSolarSystem.call(this);
+            }
+
+            monthlySlider.oninput = function() {
+                updateSliderValue(this, monthlyValue, '', 2);
+                calculateSolarSystem.call(this);
+            }
+
+            dailySlider.oninput = function() {
+                updateSliderValue(this, dailyValue, '', 2);
+                calculateSolarSystem.call(this);
+            }
+
+            systemType.onchange = calculateSolarSystem;
+
+            // Initial calculation
+            calculateSolarSystem();
+        });
+    </script>
+</body>
+</html>
